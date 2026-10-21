@@ -1,5 +1,6 @@
 {
   "rewrites": [
-    { "source": "/(.*)", "destination": "/" }
+    { "source": "/api/(.*)", "destination": "https://freelance-ledger.onrender.com/api/$1" },
+    { "source": "(.*)", "destination": "/" }
   ]
 }
