@@ -1,9 +1,7 @@
 import axios from 'axios';
 
 const API = axios.create({
-  baseURL: window.location.hostname === 'localhost' 
-    ? 'http://localhost:5000/api' 
-    : 'https://freelance-ledger.onrender.com/api',
+  baseURL: 'https://freelance-ledger.onrender.com/api',
 });
 
 // Request Interceptor: লোকালস্টোরেজ থেকে টোকেন নিয়ে হেডার-এ যুক্ত করার জন্য
