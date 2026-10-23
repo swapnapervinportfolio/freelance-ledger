@@ -5,7 +5,7 @@ import Register from './components/Register';
 import Dashboard from './components/Dashboard';
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
 
   return (
     <Router>
@@ -35,7 +35,7 @@ function App() {
           <Route 
             path="/dashboard" 
             element={
-              isAuthenticated ? <Dashboard /> : <Navigate to="/login" />
+              isAuthenticated ? <Dashboard onLogout={() => setIsAuthenticated(false)} /> : <Navigate to="/login" />
             } 
           />
 

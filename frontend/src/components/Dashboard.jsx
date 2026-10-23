@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getTransactions, addTransaction, getTransactionSummary } from '../services/api';
 
-function Dashboard() {
+function Dashboard({ onLogout }) {
   const navigate = useNavigate();
 
   const [transactions, setTransactions] = useState([]);
@@ -12,7 +12,7 @@ function Dashboard() {
   const [amount, setAmount] = useState('');
   const [type, setType] = useState('income');
   const [client, setClient] = useState('');
-  const [currency, setCurrency] = useState('USD'); // ১. কারেন্সি স্টেট যোগ করা হলো
+  const [currency, setCurrency] = useState('USD');
   const [message, setMessage] = useState('');
 
   // ড্যাশবোর্ড লোড হওয়ার সাথে সাথে ডাটাফেচ করা
@@ -30,6 +30,8 @@ function Dashboard() {
     } catch (error) {
       console.error('Error fetching data:', error);
       if (error.response?.status === 401) {
+        localStorage.removeItem('token');
+        if (onLogout) onLogout();
         navigate('/login');
       }
     }
@@ -38,6 +40,7 @@ function Dashboard() {
   // লগআউট হ্যান্ডলার
   const handleLogout = () => {
     localStorage.removeItem('token');
+    if (onLogout) onLogout();
     navigate('/login');
   };
 
@@ -52,7 +55,7 @@ function Dashboard() {
         amount: parseFloat(amount),
         type,
         client: type === 'income' ? client : undefined,
-        currency // ২. ট্রানজেকশন অবজেক্টে কারেন্সি যুক্ত করা হলো
+        currency
       };
 
       await addTransaction(newTx);
@@ -121,7 +124,6 @@ function Dashboard() {
               required
               style={{ flex: 1, padding: '8px' }}
             />
-            {/* ৩. কারেন্সি সিলেক্ট করার ড্রপডাউন */}
             <select value={currency} onChange={(e) => setCurrency(e.target.value)} style={{ padding: '8px' }}>
               <option value="USD">USD ($)</option>
               <option value="EUR">EUR (€)</option>
