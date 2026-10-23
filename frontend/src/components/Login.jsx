@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { loginUser } from '../services/api';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom'; // ১. এখানে Link ইম্পোর্ট করা হয়েছে
 
 export default function Login({ onLogin }) {
   const [formData, setFormData] = useState({ email: '', password: '' });
@@ -46,9 +46,9 @@ export default function Login({ onLogin }) {
         <button type="submit" style={{ width: '100%', padding: '10px', backgroundColor: '#28A745', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Login</button>
       </form>
 
-      {/* নতুন অ্যাকাউন্ট খোলার লিংক */}
+      {/* নতুন অ্যাকাউন্ট খোলার লিংক - a ট্যাগ এর পরিবর্তে Link ব্যবহার করা হয়েছে */}
       <p style={{ marginTop: '15px', textAlign: 'center' }}>
-        Don't have an account? <a href="/register" style={{ color: '#007bff', textDecoration: 'none' }}>Register here</a>
+        Don't have an account? <Link to="/register" style={{ color: '#007bff', textDecoration: 'none' }}>Register here</Link>
       </p>
     </div>
   );
