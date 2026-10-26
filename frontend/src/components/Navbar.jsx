@@ -10,52 +10,26 @@ function Navbar({ onLogout }) {
     navigate('/login');
   };
 
-  const linkStyle = ({ isActive }) => ({
-    padding: '8px 14px',
-    borderRadius: '4px',
-    textDecoration: 'none',
-    fontWeight: 'bold',
-    color: isActive ? '#fff' : '#1f2d3d',
-    background: isActive ? '#007bff' : 'transparent',
-  });
+  const linkClass = ({ isActive }) => (isActive ? 'nav-link active' : 'nav-link');
 
   return (
-    <nav
-      style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '10px',
-        padding: '12px 20px',
-        background: '#f5f5f5',
-        borderBottom: '1px solid #ddd',
-        fontFamily: 'Arial',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-        <span style={{ fontWeight: 'bold', fontSize: '18px', marginRight: '10px' }}>
-          FreelanceLedger
-        </span>
-        <NavLink to="/dashboard" style={linkStyle}>Dashboard</NavLink>
-        <NavLink to="/transactions" style={linkStyle}>Transactions</NavLink>
-      </div>
+    <header className="navbar">
+      <div className="navbar-inner">
+        <div className="brand">
+          <span className="brand-mark">FL</span>
+          <span className="brand-name">FreelanceLedger</span>
+        </div>
 
-      <button
-        onClick={handleLogout}
-        style={{
-          background: '#dc3545',
-          color: 'white',
-          border: 'none',
-          padding: '8px 15px',
-          borderRadius: '4px',
-          cursor: 'pointer',
-          fontWeight: 'bold',
-        }}
-      >
-        Logout
-      </button>
-    </nav>
+        <nav className="nav-links">
+          <NavLink to="/dashboard" className={linkClass}>Dashboard</NavLink>
+          <NavLink to="/transactions" className={linkClass}>Transactions</NavLink>
+        </nav>
+
+        <button className="btn btn-logout btn-sm" onClick={handleLogout}>
+          Logout
+        </button>
+      </div>
+    </header>
   );
 }
 

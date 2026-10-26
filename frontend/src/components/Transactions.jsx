@@ -1,19 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getTransactions, addTransaction } from '../services/api';
+import {
+  getTransactions,
+  addTransaction,
+  updateTransaction,
+  deleteTransaction,
+} from '../services/api';
+import { formatMoney, formatDate } from '../utils/format';
+
+const today = () => new Date().toISOString().slice(0, 10);
+
+const emptyForm = () => ({
+  title: '',
+  amount: '',
+  type: 'income',
+  client: '',
+  currency: 'USD',
+  date: today(),
+});
 
 function Transactions({ onLogout }) {
   const navigate = useNavigate();
 
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const [title, setTitle] = useState('');
-  const [amount, setAmount] = useState('');
-  const [type, setType] = useState('income');
-  const [client, setClient] = useState('');
-  const [currency, setCurrency] = useState('USD');
+  const [form, setForm] = useState(emptyForm());
+  const [editingId, setEditingId] = useState(null);
+  const [filter, setFilter] = useState('all');
   const [message, setMessage] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -35,120 +50,200 @@ function Transactions({ onLogout }) {
     }
   };
 
-  const handleAddTransaction = async (e) => {
+  const handleChange = (field) => (e) => {
+    setForm({ ...form, [field]: e.target.value });
+  };
+
+  const resetForm = () => {
+    setForm(emptyForm());
+    setEditingId(null);
+    setMessage('');
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!title || !amount) return;
+    if (!form.title || !form.amount) return;
 
+    const payload = {
+      title: form.title,
+      amount: parseFloat(form.amount),
+      type: form.type,
+      client: form.type === 'income' ? form.client : '',
+      currency: form.currency,
+      date: form.date,
+    };
+
+    setSaving(true);
     try {
-      const newTx = {
-        title,
-        amount: parseFloat(amount),
-        type,
-        client: type === 'income' ? client : undefined,
-        currency,
-      };
-
-      await addTransaction(newTx);
-      setTitle('');
-      setAmount('');
-      setClient('');
-      setCurrency('USD');
-      setMessage('');
-
+      if (editingId) {
+        await updateTransaction(editingId, payload);
+      } else {
+        await addTransaction(payload);
+      }
+      resetForm();
       fetchData();
     } catch (error) {
-      setMessage(error.response?.data?.message || 'Failed to add transaction');
+      setMessage(error.response?.data?.message || 'Something went wrong. Please try again.');
+    } finally {
+      setSaving(false);
     }
   };
 
+  const handleEdit = (t) => {
+    setEditingId(t._id);
+    setForm({
+      title: t.title,
+      amount: String(t.amount),
+      type: t.type,
+      client: t.client || '',
+      currency: t.currency || 'USD',
+      date: t.date ? t.date.slice(0, 10) : today(),
+    });
+    setMessage('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this transaction?')) return;
+    try {
+      await deleteTransaction(id);
+      if (editingId === id) resetForm();
+      fetchData();
+    } catch (error) {
+      setMessage(error.response?.data?.message || 'Failed to delete transaction');
+    }
+  };
+
+  const filtered = transactions.filter((t) => filter === 'all' || t.type === filter);
+
   return (
-    <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto', fontFamily: 'Arial' }}>
-      <h2>Transactions</h2>
+    <div className="page">
+      <h1 className="page-title">Transactions</h1>
+      <p className="page-sub">Add, edit and track every income and expense.</p>
 
-      {message && <p style={{ color: 'red' }}>{message}</p>}
+      {/* Add / Edit Form */}
+      <form className="card" onSubmit={handleSubmit}>
+        <div className="section-head">
+          <h3 className="section-title">{editingId ? 'Edit Transaction' : 'Add New Transaction'}</h3>
+        </div>
 
-      {/* Add Transaction Form */}
-      <form
-        onSubmit={handleAddTransaction}
-        style={{ background: '#f5f5f5', padding: '15px', borderRadius: '5px', marginBottom: '20px' }}
-      >
-        <h4>Add New Transaction</h4>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '10px' }}>
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+        {message && <div className="alert">{message}</div>}
+
+        <div className="form-grid">
+          <input
+            className="input span-2"
+            type="text"
+            placeholder="Title (e.g. Website Project)"
+            value={form.title}
+            onChange={handleChange('title')}
+            required
+          />
+          <input
+            className="input"
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="Amount"
+            value={form.amount}
+            onChange={handleChange('amount')}
+            required
+          />
+          <select className="input" value={form.currency} onChange={handleChange('currency')}>
+            <option value="USD">USD ($)</option>
+            <option value="EUR">EUR (€)</option>
+            <option value="GBP">GBP (£)</option>
+            <option value="BDT">BDT (৳)</option>
+          </select>
+
+          <select className="input" value={form.type} onChange={handleChange('type')}>
+            <option value="income">Income</option>
+            <option value="expense">Expense</option>
+          </select>
+
+          {form.type === 'income' && (
             <input
+              className="input span-2"
               type="text"
-              placeholder="Transaction Title (e.g. Web Project)"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Client name (required for income)"
+              value={form.client}
+              onChange={handleChange('client')}
               required
-              style={{ flex: 2, minWidth: '160px', padding: '8px' }}
             />
-            <input
-              type="number"
-              placeholder="Amount"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              required
-              style={{ flex: 1, minWidth: '100px', padding: '8px' }}
-            />
-            <select value={currency} onChange={(e) => setCurrency(e.target.value)} style={{ padding: '8px' }}>
-              <option value="USD">USD ($)</option>
-              <option value="EUR">EUR (€)</option>
-              <option value="GBP">GBP (£)</option>
-              <option value="BDT">BDT (৳)</option>
-            </select>
-            <select value={type} onChange={(e) => setType(e.target.value)} style={{ padding: '8px' }}>
-              <option value="income">Income</option>
-              <option value="expense">Expense</option>
-            </select>
-          </div>
-          {type === 'income' && (
-            <input
-              type="text"
-              placeholder="Client Name (Required for Income)"
-              value={client}
-              onChange={(e) => setClient(e.target.value)}
-              required
-              style={{ padding: '8px' }}
-            />
+          )}
+
+          <input className="input" type="date" value={form.date} onChange={handleChange('date')} />
+        </div>
+
+        <div className="form-actions">
+          <button type="submit" className="btn btn-primary" disabled={saving}>
+            {saving ? 'Saving...' : editingId ? 'Update Transaction' : 'Add Transaction'}
+          </button>
+          {editingId && (
+            <button type="button" className="btn btn-ghost" onClick={resetForm}>
+              Cancel
+            </button>
           )}
         </div>
-        <button
-          type="submit"
-          style={{ background: '#007bff', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '4px', cursor: 'pointer' }}
-        >
-          Add Transaction
-        </button>
       </form>
 
-      {/* Full Transactions List */}
-      <h3>Transaction History</h3>
-      {loading ? (
-        <p>Loading...</p>
-      ) : (
-        <ul style={{ listStyle: 'none', padding: 0 }}>
-          {transactions.length === 0 ? (
-            <p>No transactions found. Add your first transaction above!</p>
-          ) : (
-            transactions.map((t) => (
-              <li
-                key={t._id}
-                style={{ display: 'flex', justifyContent: 'space-between', background: '#fff', border: '1px solid #ddd', padding: '10px', marginBottom: '8px', borderRadius: '4px' }}
+      {/* History */}
+      <div className="card">
+        <div className="section-head">
+          <h3 className="section-title">Transaction History</h3>
+          <div className="tabs">
+            {['all', 'income', 'expense'].map((f) => (
+              <button
+                key={f}
+                type="button"
+                className={filter === f ? 'tab active' : 'tab'}
+                onClick={() => setFilter(f)}
               >
-                <div>
-                  <strong>{t.title}</strong>
-                  {t.client && <small style={{ display: 'block', color: '#666' }}>Client: {t.client}</small>}
+                {f.charAt(0).toUpperCase() + f.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="loading">Loading...</div>
+        ) : filtered.length === 0 ? (
+          <div className="empty">No transactions found.</div>
+        ) : (
+          <ul className="tx-list">
+            {filtered.map((t) => (
+              <li className="tx-item" key={t._id}>
+                <div className={`tx-icon ${t.type}`}>{t.type === 'income' ? '↑' : '↓'}</div>
+
+                <div className="tx-main">
+                  <div className="tx-title">{t.title}</div>
+                  <div className="tx-meta">
+                    {formatDate(t.date)}
+                    {t.client ? ` · ${t.client}` : ''}
+                  </div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <span style={{ color: t.type === 'income' ? 'green' : 'red', fontWeight: 'bold' }}>
-                    {t.type === 'income' ? '+' : '-'}{t.amount} {t.currency || 'USD'}
-                  </span>
+
+                <div className={`tx-amount ${t.type}`}>
+                  {t.type === 'income' ? '+' : '-'}
+                  {formatMoney(t.amount, t.currency)}
+                </div>
+
+                <div className="tx-actions">
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => handleEdit(t)}>
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-danger-soft btn-sm"
+                    onClick={() => handleDelete(t._id)}
+                  >
+                    Delete
+                  </button>
                 </div>
               </li>
-            ))
-          )}
-        </ul>
-      )}
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

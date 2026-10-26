@@ -4,7 +4,7 @@ const API = axios.create({
   baseURL: 'https://freelance-ledger.onrender.com/api',
 });
 
-// Request Interceptor: লোকালস্টোরেজ থেকে টোকেন নিয়ে হেডার-এ যুক্ত করার জন্য
+// Request Interceptor: attach token to every request
 API.interceptors.request.use((req) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -20,4 +20,6 @@ export const loginUser = (userData) => API.post('/auth/login', userData);
 // Transaction APIs
 export const getTransactions = () => API.get('/transactions');
 export const addTransaction = (transactionData) => API.post('/transactions', transactionData);
+export const updateTransaction = (id, transactionData) => API.put(`/transactions/${id}`, transactionData);
+export const deleteTransaction = (id) => API.delete(`/transactions/${id}`);
 export const getTransactionSummary = () => API.get('/transactions/summary');

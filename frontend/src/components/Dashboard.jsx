@@ -1,13 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { getTransactions, getTransactionSummary } from '../services/api';
+import { formatMoney, formatDate } from '../utils/format';
+
+const DEFAULT_RATES = { USD: '120', EUR: '', GBP: '' };
+
+const loadRates = () => {
+  try {
+    const saved = JSON.parse(localStorage.getItem('rates'));
+    return { ...DEFAULT_RATES, ...(saved || {}) };
+  } catch (e) {
+    return DEFAULT_RATES;
+  }
+};
 
 function Dashboard({ onLogout }) {
   const navigate = useNavigate();
 
   const [transactions, setTransactions] = useState([]);
-  const [summary, setSummary] = useState({ totalIncome: 0, totalExpense: 0, netProfit: 0 });
+  const [summary, setSummary] = useState({ totals: {}, clientEarnings: [] });
   const [loading, setLoading] = useState(true);
+  const [rates, setRates] = useState(loadRates());
 
   useEffect(() => {
     fetchData();
@@ -15,11 +28,15 @@ function Dashboard({ onLogout }) {
 
   const fetchData = async () => {
     try {
-      const txResponse = await getTransactions();
+      const [txResponse, summaryResponse] = await Promise.all([
+        getTransactions(),
+        getTransactionSummary(),
+      ]);
       setTransactions(txResponse.data);
-
-      const summaryResponse = await getTransactionSummary();
-      setSummary(summaryResponse.data);
+      setSummary({
+        totals: summaryResponse.data.totals || {},
+        clientEarnings: summaryResponse.data.clientEarnings || [],
+      });
     } catch (error) {
       console.error('Error fetching data:', error);
       if (error.response?.status === 401) {
@@ -32,64 +49,190 @@ function Dashboard({ onLogout }) {
     }
   };
 
+  const handleRateChange = (cur) => (e) => {
+    const next = { ...rates, [cur]: e.target.value };
+    setRates(next);
+    try {
+      localStorage.setItem('rates', JSON.stringify(next));
+    } catch (err) {
+      // ignore storage errors
+    }
+  };
+
+  const currencies = Object.keys(summary.totals);
+  const foreign = currencies.filter((c) => c !== 'BDT');
+  const missing = foreign.filter((c) => !(parseFloat(rates[c]) > 0));
   const recent = transactions.slice(0, 5);
+  const topClients = summary.clientEarnings.slice(0, 5);
+
+  const toBdt = (amount, cur) =>
+    cur === 'BDT' ? amount : amount * (parseFloat(rates[cur]) || 0);
+
+  const grand = currencies.reduce(
+    (acc, cur) => {
+      if (cur !== 'BDT' && missing.includes(cur)) return acc;
+      const t = summary.totals[cur];
+      acc.income += toBdt(t.income, cur);
+      acc.expense += toBdt(t.expense, cur);
+      return acc;
+    },
+    { income: 0, expense: 0 }
+  );
+  grand.net = grand.income - grand.expense;
+
+  if (loading) {
+    return <div className="loading">Loading your dashboard...</div>;
+  }
 
   return (
-    <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto', fontFamily: 'Arial' }}>
-      <h2>Dashboard</h2>
+    <div className="page">
+      <h1 className="page-title">Dashboard</h1>
+      <p className="page-sub">Your freelance income at a glance.</p>
 
-      {loading ? (
-        <p>Loading...</p>
-      ) : (
-        <>
-          {/* Summary Cards */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: '20px' }}>
-            <div style={{ background: '#e3f2fd', padding: '15px', borderRadius: '5px', flex: 1, minWidth: '180px' }}>
-              <h4>Net Profit / Balance</h4>
-              <h3>${summary.netProfit || 0}</h3>
+      {/* Combined total in BDT (only when there is a foreign currency) */}
+      {foreign.length > 0 && (
+        <div className="currency-block">
+          <div className="section-head">
+            <h3 className="section-title">Total in BDT</h3>
+            <span className="currency-tag">BDT</span>
+          </div>
+          <div className="stat-grid">
+            <div className="stat primary">
+              <div className="stat-label">Balance</div>
+              <div className="stat-value">{formatMoney(grand.net, 'BDT')}</div>
             </div>
-            <div style={{ background: '#e8f5e9', padding: '15px', borderRadius: '5px', flex: 1, minWidth: '180px' }}>
-              <h4>Total Income</h4>
-              <h3 style={{ color: 'green' }}>${summary.totalIncome || 0}</h3>
+            <div className="stat">
+              <div className="stat-label">Total Income</div>
+              <div className="stat-value green">{formatMoney(grand.income, 'BDT')}</div>
             </div>
-            <div style={{ background: '#ffebee', padding: '15px', borderRadius: '5px', flex: 1, minWidth: '180px' }}>
-              <h4>Total Expense</h4>
-              <h3 style={{ color: 'red' }}>${summary.totalExpense || 0}</h3>
+            <div className="stat">
+              <div className="stat-label">Total Expense</div>
+              <div className="stat-value red">{formatMoney(grand.expense, 'BDT')}</div>
             </div>
           </div>
-
-          {/* Recent Transactions */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3>Recent Transactions</h3>
-            <Link to="/transactions" style={{ color: '#007bff', fontWeight: 'bold', textDecoration: 'none' }}>
-              View all / Add new
-            </Link>
-          </div>
-
-          <ul style={{ listStyle: 'none', padding: 0 }}>
-            {recent.length === 0 ? (
-              <p>No transactions yet. Go to the Transactions page to add your first one!</p>
-            ) : (
-              recent.map((t) => (
-                <li
-                  key={t._id}
-                  style={{ display: 'flex', justifyContent: 'space-between', background: '#fff', border: '1px solid #ddd', padding: '10px', marginBottom: '8px', borderRadius: '4px' }}
-                >
-                  <div>
-                    <strong>{t.title}</strong>
-                    {t.client && <small style={{ display: 'block', color: '#666' }}>Client: {t.client}</small>}
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <span style={{ color: t.type === 'income' ? 'green' : 'red', fontWeight: 'bold' }}>
-                      {t.type === 'income' ? '+' : '-'}{t.amount} {t.currency || 'USD'}
-                    </span>
-                  </div>
-                </li>
-              ))
-            )}
-          </ul>
-        </>
+          {missing.length > 0 && (
+            <div className="note">
+              Set a rate for {missing.join(', ')} below to include it in this total.
+            </div>
+          )}
+        </div>
       )}
+
+      {/* Exchange rate box */}
+      {foreign.length > 0 && (
+        <div className="card">
+          <div className="section-head">
+            <h3 className="section-title">Exchange Rates</h3>
+          </div>
+          <p className="page-sub" style={{ marginBottom: 14 }}>
+            Enter the rate you actually get when you cash out. It is saved on this device.
+          </p>
+          <div className="rate-grid">
+            {foreign.map((cur) => (
+              <div className="rate-row" key={cur}>
+                <span className="rate-label">1 {cur} =</span>
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Rate"
+                  value={rates[cur] || ''}
+                  onChange={handleRateChange(cur)}
+                />
+                <span className="rate-label">BDT</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Totals for each currency, kept separate */}
+      {currencies.length === 0 ? (
+        <div className="card">
+          <div className="empty">
+            No data yet. <Link to="/transactions" className="link">Add your first transaction</Link>
+          </div>
+        </div>
+      ) : (
+        currencies.map((cur) => {
+          const t = summary.totals[cur];
+          return (
+            <div className="currency-block" key={cur}>
+              <div className="section-head">
+                <h3 className="section-title">Overview</h3>
+                <span className="currency-tag">{cur}</span>
+              </div>
+              <div className="stat-grid">
+                <div className="stat primary">
+                  <div className="stat-label">Balance</div>
+                  <div className="stat-value">{formatMoney(t.net, cur)}</div>
+                </div>
+                <div className="stat">
+                  <div className="stat-label">Total Income</div>
+                  <div className="stat-value green">{formatMoney(t.income, cur)}</div>
+                </div>
+                <div className="stat">
+                  <div className="stat-label">Total Expense</div>
+                  <div className="stat-value red">{formatMoney(t.expense, cur)}</div>
+                </div>
+              </div>
+            </div>
+          );
+        })
+      )}
+
+      {/* Top Clients */}
+      {topClients.length > 0 && (
+        <div className="card">
+          <div className="section-head">
+            <h3 className="section-title">Top Clients</h3>
+          </div>
+          <ul className="tx-list">
+            {topClients.map((c) => (
+              <li className="tx-item" key={`${c.client}-${c.currency}`}>
+                <div className="avatar">{c.client.charAt(0).toUpperCase()}</div>
+                <div className="tx-main">
+                  <div className="tx-title">{c.client}</div>
+                  <div className="tx-meta">{c.currency}</div>
+                </div>
+                <div className="tx-amount income">{formatMoney(c.total, c.currency)}</div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Recent Transactions */}
+      <div className="card">
+        <div className="section-head">
+          <h3 className="section-title">Recent Transactions</h3>
+          <Link to="/transactions" className="link">View all</Link>
+        </div>
+
+        {recent.length === 0 ? (
+          <div className="empty">No transactions yet.</div>
+        ) : (
+          <ul className="tx-list">
+            {recent.map((t) => (
+              <li className="tx-item" key={t._id}>
+                <div className={`tx-icon ${t.type}`}>{t.type === 'income' ? '↑' : '↓'}</div>
+                <div className="tx-main">
+                  <div className="tx-title">{t.title}</div>
+                  <div className="tx-meta">
+                    {formatDate(t.date)}
+                    {t.client ? ` · ${t.client}` : ''}
+                  </div>
+                </div>
+                <div className={`tx-amount ${t.type}`}>
+                  {t.type === 'income' ? '+' : '-'}
+                  {formatMoney(t.amount, t.currency)}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
