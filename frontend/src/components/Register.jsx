@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { registerUser } from '../services/api';
 
 export default function Register() {
   const [formData, setFormData] = useState({ name: '', email: '', password: '' });
   const [message, setMessage] = useState('');
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -11,33 +14,92 @@ export default function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setMessage('');
     try {
       await registerUser(formData);
-      setMessage('Registration successful! Please login.');
+      setIsSuccess(true);
+      setMessage('Registration successful! Please sign in.');
+      setFormData({ name: '', email: '', password: '' });
     } catch (error) {
+      setIsSuccess(false);
       setMessage(error.response?.data?.message || 'Something went wrong!');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div style={{ maxWidth: '400px', margin: '50px auto', padding: '20px', border: '1px solid #ccc', borderRadius: '8px' }}>
-      <h2>Freelancer Registration</h2>
-      {message && <p style={{ color: 'green' }}>{message}</p>}
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: '10px' }}>
-          <label>Name:</label><br />
-          <input type="text" name="name" value={formData.name} onChange={handleChange} required style={{ width: '100%', padding: '8px' }} />
+    <div className="auth-wrap">
+      <div className="auth-card">
+        <div className="auth-brand">
+          <span className="brand-mark">FL</span>
+          <span className="brand-name">FreelanceLedger</span>
         </div>
-        <div style={{ marginBottom: '10px' }}>
-          <label>Email:</label><br />
-          <input type="email" name="email" value={formData.email} onChange={handleChange} required style={{ width: '100%', padding: '8px' }} />
-        </div>
-        <div style={{ marginBottom: '10px' }}>
-          <label>Password:</label><br />
-          <input type="password" name="password" value={formData.password} onChange={handleChange} required style={{ width: '100%', padding: '8px' }} />
-        </div>
-        <button type="submit" style={{ width: '100%', padding: '10px', backgroundColor: '#007BFF', color: '#fff', border: 'none', borderRadius: '4px' }}>Register</button>
-      </form>
+
+        <h2 className="auth-title">Create your account</h2>
+        <p className="auth-sub">Track your freelance income and expenses in one place.</p>
+
+        {message && (
+          <div className={isSuccess ? 'alert success' : 'alert'}>{message}</div>
+        )}
+
+        <form onSubmit={handleSubmit}>
+          <div className="field">
+            <label htmlFor="name">Full name</label>
+            <input
+              id="name"
+              className="input"
+              type="text"
+              name="name"
+              placeholder="Your name"
+              value={formData.name}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="field">
+            <label htmlFor="email">Email</label>
+            <input
+              id="email"
+              className="input"
+              type="email"
+              name="email"
+              placeholder="you@example.com"
+              value={formData.email}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="field">
+            <label htmlFor="password">Password</label>
+            <input
+              id="password"
+              className="input"
+              type="password"
+              name="password"
+              placeholder="Create a password"
+              value={formData.password}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
+            {loading ? 'Creating account...' : 'Create Account'}
+          </button>
+        </form>
+
+        {loading && (
+          <p className="auth-hint">The server may take up to a minute to wake up on first use.</p>
+        )}
+
+        <p className="auth-switch">
+          Already have an account? <Link to="/login" className="link">Sign in</Link>
+        </p>
+      </div>
     </div>
   );
 }

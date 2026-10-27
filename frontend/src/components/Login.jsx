@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { loginUser } from '../services/api';
-import { useNavigate, Link } from 'react-router-dom'; // ১. এখানে Link ইম্পোর্ট করা হয়েছে
+import { useNavigate, Link } from 'react-router-dom';
 
 export default function Login({ onLogin }) {
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -13,43 +14,80 @@ export default function Login({ onLogin }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setMessage('');
     try {
       const response = await loginUser(formData);
-      setMessage('Login successful! Welcome back.');
-      
-      // ব্যাকএন্ড থেকে আসা টোকেনটি লোকালস্টোরেজে সেভ করা
+
+      // Save the token returned by the backend
       localStorage.setItem('token', response.data.token || response.data);
 
       if (onLogin) {
         onLogin();
       }
       navigate('/dashboard');
-      
     } catch (error) {
       setMessage(error.response?.data?.message || 'Invalid email or password!');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div style={{ maxWidth: '400px', margin: '50px auto', padding: '20px', border: '1px solid #ccc', borderRadius: '8px' }}>
-      <h2>Freelancer Login</h2>
-      {message && <p style={{ color: message.includes('success') ? 'green' : 'red' }}>{message}</p>}
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: '10px' }}>
-          <label>Email:</label><br />
-          <input type="email" name="email" value={formData.email} onChange={handleChange} required style={{ width: '100%', padding: '8px' }} />
+    <div className="auth-wrap">
+      <div className="auth-card">
+        <div className="auth-brand">
+          <span className="brand-mark">FL</span>
+          <span className="brand-name">FreelanceLedger</span>
         </div>
-        <div style={{ marginBottom: '10px' }}>
-          <label>Password:</label><br />
-          <input type="password" name="password" value={formData.password} onChange={handleChange} required style={{ width: '100%', padding: '8px' }} />
-        </div>
-        <button type="submit" style={{ width: '100%', padding: '10px', backgroundColor: '#28A745', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Login</button>
-      </form>
 
-      {/* নতুন অ্যাকাউন্ট খোলার লিংক - a ট্যাগ এর পরিবর্তে Link ব্যবহার করা হয়েছে */}
-      <p style={{ marginTop: '15px', textAlign: 'center' }}>
-        Don't have an account? <Link to="/register" style={{ color: '#007bff', textDecoration: 'none' }}>Register here</Link>
-      </p>
+        <h2 className="auth-title">Welcome back</h2>
+        <p className="auth-sub">Sign in to manage your freelance income.</p>
+
+        {message && <div className="alert">{message}</div>}
+
+        <form onSubmit={handleSubmit}>
+          <div className="field">
+            <label htmlFor="email">Email</label>
+            <input
+              id="email"
+              className="input"
+              type="email"
+              name="email"
+              placeholder="you@example.com"
+              value={formData.email}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="field">
+            <label htmlFor="password">Password</label>
+            <input
+              id="password"
+              className="input"
+              type="password"
+              name="password"
+              placeholder="Your password"
+              value={formData.password}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
+            {loading ? 'Signing in...' : 'Sign In'}
+          </button>
+        </form>
+
+        {loading && (
+          <p className="auth-hint">The server may take up to a minute to wake up on first sign in.</p>
+        )}
+
+        <p className="auth-switch">
+          Don't have an account? <Link to="/register" className="link">Create one</Link>
+        </p>
+      </div>
     </div>
   );
 }
